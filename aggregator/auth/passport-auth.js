@@ -65,8 +65,6 @@ var cookieExtractor = function(req) {
 	return token;
 };
 
-console.log("JWT- AAAAAAAAAAAAAAAAA", process.env.JWT_SECRET);
-
 // Setting up strategy for passport for jwt
 passport.use(
 	new JWTstrategy(

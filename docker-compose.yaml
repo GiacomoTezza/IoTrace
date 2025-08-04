@@ -39,6 +39,9 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/mongo_root_user
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_pass
+      MONGO_INITDB_DATABASE: iotrace
+      MONGO_USER: user
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
     volumes:
       - mongo-data:/data/db
       - ./mongo_healthcheck.sh:/mongo_healthcheck.sh:ro
@@ -63,11 +66,13 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      MONGO_URI: ${MONGO_URI}
       MQTT_URL: "mqtts://emqx:8883"
       MQTT_USERNAME: ${MQTT_USERNAME}
       MQTT_PASSWORD: ${MQTT_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      DB_NAME: iotrace
+      DB_USER: user
+      DB_PASSWORD: ${MONGO_PASSWORD}
     depends_on:
       emqx:
         condition: service_healthy
