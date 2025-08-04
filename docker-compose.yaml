@@ -1,0 +1,115 @@
+# -----------------------------------------------------------------------------
+# Dockerd Compose: MQTT Broker (EMQX), MongoDB & SBOM Aggregator (Express.js)
+# -----------------------------------------------------------------------------
+
+services:
+  emqx:
+    image: emqx/emqx:5.0.16
+    container_name: sbom-emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883"     # MQTT plain
+      - "8883:8883"     # MQTT over TLS
+      - "8081:8081"     # Dashboard (secure)
+    environment:
+      EMQX_NAME: "sbom-emqx-node"
+      EMQX_ALLOW_ANONYMOUS: "false"
+      EMQX_AUTH__PASSWORD_HASH: "bcrypt"
+      EMQX_LISTENER__SSL__EXTERNAL__KEYFILE: "/emqx/certs/server.key"
+      EMQX_LISTENER__SSL__EXTERNAL__CERTFILE: "/emqx/certs/server.crt"
+      EMQX_LISTENER__SSL__EXTERNAL__CACERTFILE: "/emqx/certs/ca.crt"
+    volumes:
+      - emqx-data:/emqx/data
+      - emqx-etc:/emqx/etc
+      - ./certs:/emqx/certs:ro
+    healthcheck:
+      test: ["CMD", "sh", "-c", "emqx_ctl status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sbom-net
+
+  mongo:
+    image: mongo:6.0
+    container_name: sbom-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/mongo_root_user
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_pass
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo_healthcheck.sh:/mongo_healthcheck.sh:ro
+    secrets:
+      - mongo_root_user
+      - mongo_root_pass
+    healthcheck:
+      test: ["CMD", "/mongo_healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sbom-net
+
+  sbom-aggregator:
+    build:
+      context: ./aggregator
+      dockerfile: Dockerfile
+    container_name: sbom-aggregator
+    restart: on-failure
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      MONGO_URI: ${MONGO_URI}
+      MQTT_URL: "mqtts://emqx:8883"
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      emqx:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./aggregator/config:/app/config:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sbom-net
+
+# -----------------------------------------------------------------------------
+# Volumes & Secrets
+# -----------------------------------------------------------------------------
+
+volumes:
+  emqx-data:
+  emqx-etc:
+  mongo-data:
+
+secrets:
+  mongo_root_user:
+    file: ./secrets/mongo_root_user.txt
+  mongo_root_pass:
+    file: ./secrets/mongo_root_pass.txt
+  mongo_uri:
+    file: ./secrets/mongo_uri.txt
+  mqtt_username:
+    file: ./secrets/mqtt_username.txt
+  mqtt_password:
+    file: ./secrets/mqtt_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+
+networks:
+  sbom-net:
+    driver: bridge
