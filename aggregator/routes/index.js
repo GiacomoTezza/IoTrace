@@ -1,6 +1,7 @@
 // const passport = require("passport");
 require("../auth/passport-auth");
 
+const healthcheck = require("./healthcheck");
 const auth = require("./auth");
 
 const base_url = "/api";
@@ -10,6 +11,7 @@ passport_options = {
 
 // Exporting routes
 module.exports = (app) => {
+	app.use(base_url + "/health", healthcheck);
 	app.use(base_url + "/auth", auth);
 
 	// Examples:
