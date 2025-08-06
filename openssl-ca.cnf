@@ -1,0 +1,12 @@
+
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+x509_extensions = v3_ca
+
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, keyCertSign, cRLSign

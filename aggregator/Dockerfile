@@ -16,8 +16,14 @@ COPY . .
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
 # Create a non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && \
+	addgroup -g 1020 certgroup && \
+	adduser -S appuser -G appgroup && \
+	adduser appuser certgroup
 
 # Copy production dependencies and built files
 COPY --from=build /app/node_modules ./node_modules

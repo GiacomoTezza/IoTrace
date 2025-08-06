@@ -21,7 +21,7 @@ services:
     volumes:
       - emqx-data:/emqx/data
       - emqx-etc:/emqx/etc
-      - ./certs:/emqx/certs:ro
+      - ./certs/emqx:/emqx/certs:ro
     healthcheck:
       test: ["CMD", "sh", "-c", "emqx_ctl status"]
       interval: 30s
@@ -42,8 +42,14 @@ services:
       MONGO_INITDB_DATABASE: iotrace
       MONGO_USER: user
       MONGO_PASSWORD: ${MONGO_PASSWORD}
+    command: >
+      mongod --tlsMode requireTLS
+             --tlsCertificateKeyFile /certs/mongodb.pem
+             --tlsCAFile /certs/ca.crt
     volumes:
       - mongo-data:/data/db
+      - ./certs/mongodb:/certs:ro
+      - ./certs/mongo-healthcheck/mongo-healthcheck.pem:/mongo-healthcheck.pem:ro
       - ./mongo_healthcheck.sh:/mongo_healthcheck.sh:ro
     secrets:
       - mongo_root_user
@@ -79,9 +85,9 @@ services:
       mongo:
         condition: service_healthy
     volumes:
-      - ./aggregator/config:/app/config:ro
+      - ./certs/aggregator:/app/certs:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f --insecure https://localhost:3000/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -102,14 +108,6 @@ secrets:
     file: ./secrets/mongo_root_user.txt
   mongo_root_pass:
     file: ./secrets/mongo_root_pass.txt
-  mongo_uri:
-    file: ./secrets/mongo_uri.txt
-  mqtt_username:
-    file: ./secrets/mqtt_username.txt
-  mqtt_password:
-    file: ./secrets/mqtt_password.txt
-  jwt_secret:
-    file: ./secrets/jwt_secret.txt
 
 # -----------------------------------------------------------------------------
 # Networks
