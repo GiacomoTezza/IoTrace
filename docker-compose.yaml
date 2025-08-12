@@ -15,13 +15,14 @@ services:
       EMQX_NAME: "sbom-emqx-node"
       EMQX_ALLOW_ANONYMOUS: "false"
       EMQX_AUTH__PASSWORD_HASH: "bcrypt"
-      EMQX_LISTENER__SSL__EXTERNAL__KEYFILE: "/emqx/certs/server.key"
-      EMQX_LISTENER__SSL__EXTERNAL__CERTFILE: "/emqx/certs/server.crt"
-      EMQX_LISTENER__SSL__EXTERNAL__CACERTFILE: "/emqx/certs/ca.crt"
+      EMQX_LISTENER__SSL__EXTERNAL__VERIFY: "verify_peer"
+      EMQX_LISTENER__SSL__EXTERNAL__FAIL_IF_NO_PEER_CERT: "true"
+      EMQX_LOADED_PLUGINS: "emqx_acl"
     volumes:
       - emqx-data:/emqx/data
       - emqx-etc:/emqx/etc
-      - ./certs/emqx:/emqx/certs:ro
+      - ./certs/emqx:/opt/emqx/etc/certs:ro
+      - ./acl.conf:/opt/emqx/etc/acl.conf:ro
     healthcheck:
       test: ["CMD", "sh", "-c", "emqx_ctl status"]
       interval: 30s
@@ -91,6 +92,25 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    networks:
+      - sbom-net
+
+  tracelet:
+    build:
+      context: ./deamon
+      dockerfile: Dockerfile
+    container_name: sbom-tracelet-1
+    hostname: sbom-tracelet-1
+    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 60"]
+    environment:
+      DEVICE_ID: sbom-tracelet-1
+    depends_on:
+      sbom-aggregator:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
+    volumes:
+      - ./deamon/certs/sbom-tracelet-1:/app/certs:ro
     networks:
       - sbom-net
 

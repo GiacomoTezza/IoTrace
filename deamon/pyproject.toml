@@ -1,0 +1,15 @@
+[project]
+name = "tracelet"
+version = "0.1.0"
+description = "SBOM tracer daemon for IoT devices"
+authors = [{name="Giacomo Tezza"}]
+dependencies = [
+    "paho-mqtt",
+    "cryptography",
+    "click",
+    "python-dotenv"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
