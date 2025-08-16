@@ -1,5 +1,7 @@
 // const passport = require("passport");
 require("../auth/passport-auth");
+require("../db/index")
+require("../handlers/EmqxHandler");
 
 const healthcheck = require("./healthcheck");
 const auth = require("./auth");

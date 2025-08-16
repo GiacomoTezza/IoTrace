@@ -159,11 +159,13 @@ EOF
             ;;
         aggregator)
             cp "$dir/$service.key" "$dir/privkey.pem"
-            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt"> "$dir/fullchain.pem"
+            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/fullchain.pem"
+            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/$service-fullchain.crt"
             cp "$ca_dir/ca-chain.crt" "$dir/ca.crt"
-            chmod 640 "$dir/privkey.pem" "$dir/fullchain.pem"
+            cat "$dir/$service.key" "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/${service}-mongo-client.pem"
+            chmod 640 "$dir/privkey.pem" "$dir/fullchain.pem" "$dir/$service-fullchain.crt" "$dir/$service.crt" "$dir/$service.key" "$dir/$service-mongo-client.pem"
             chmod 644 "$dir/ca.crt"
-            sudo chgrp certgroup "$dir/privkey.pem" "$dir/fullchain.pem" "$dir/ca.crt"
+            sudo chgrp certgroup "$dir/privkey.pem" "$dir/fullchain.pem" "$dir/ca.crt" "$dir/$service-fullchain.crt" "$dir/$service.crt" "$dir/$service.key" "$dir/$service-mongo-client.pem"
             echo "✅ Aggregator"
             ;;
         mongodb)
@@ -254,7 +256,7 @@ generate_intermediate_ca
 generate_cert_for_service "emqx" "emqx"
 generate_cert_for_service "aggregator" "aggregator"
 generate_cert_for_service "mongodb" "mongo"
-generate_cert_for_service "mongo-healthcheck" "mongo"
+generate_cert_for_service "mongo-healthcheck" "mongo.healthcheck"
 
 generate_cert_for_deamon 5
 

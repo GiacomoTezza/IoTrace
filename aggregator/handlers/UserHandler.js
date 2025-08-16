@@ -28,7 +28,7 @@ class UserHandler {
             .catch((err) => {
                 throw new FailedDependencyException("Error deleting user");
             });
-        
+
         return user;
     }
 
@@ -48,7 +48,7 @@ class UserHandler {
             .catch((err) => {
                 throw new FailedDependencyException("Error updating password");
             }
-        );
+            );
 
         return user;
     }

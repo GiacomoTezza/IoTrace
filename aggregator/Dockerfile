@@ -29,6 +29,9 @@ RUN addgroup -S appgroup && \
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app .
 
+# Development Only! Install nodeamon
+RUN npm install -g nodemon
+
 # Drop to unprivileged user
 USER appuser
 
@@ -40,4 +43,6 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 	CMD wget -qO- http://localhost:3000/health || exit 1
 
 # Entrypoint
-CMD ["node", "bin/www"]
+# CMD ["node", "bin/www"]
+
+CMD ["nodemon", "--watch", ".", "--exec", "node", "bin/www"]

@@ -18,6 +18,7 @@ services:
       EMQX_LISTENER__SSL__EXTERNAL__VERIFY: "verify_peer"
       EMQX_LISTENER__SSL__EXTERNAL__FAIL_IF_NO_PEER_CERT: "true"
       EMQX_LOADED_PLUGINS: "emqx_acl"
+      EMQX_MQTT__MAX_PACKET_SIZE: "4MB"
     volumes:
       - emqx-data:/emqx/data
       - emqx-etc:/emqx/etc
@@ -52,6 +53,7 @@ services:
       - ./certs/mongodb:/certs:ro
       - ./certs/mongo-healthcheck/mongo-healthcheck.pem:/mongo-healthcheck.pem:ro
       - ./mongo_healthcheck.sh:/mongo_healthcheck.sh:ro
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
     secrets:
       - mongo_root_user
       - mongo_root_pass
@@ -73,6 +75,11 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      CERTS_DIR: /app/certs
+      TRUSTED_CA_DIR: /app/certs/ca.crt
+      MONGO_CA_PATH: /app/certs/ca.crt
+      MONGO_CLIENT_CERT: /app/certs/aggregator-mongo-client.pem
+      MONGO_TLS: "true"
       MQTT_URL: "mqtts://emqx:8883"
       MQTT_USERNAME: ${MQTT_USERNAME}
       MQTT_PASSWORD: ${MQTT_PASSWORD}
@@ -80,6 +87,8 @@ services:
       DB_NAME: iotrace
       DB_USER: user
       DB_PASSWORD: ${MONGO_PASSWORD}
+      DB_PORT: 27017
+
     depends_on:
       emqx:
         condition: service_healthy
@@ -87,6 +96,8 @@ services:
         condition: service_healthy
     volumes:
       - ./certs/aggregator:/app/certs:ro
+      # Development Only!
+      - ./aggregator:/app
     healthcheck:
       test: ["CMD-SHELL", "curl -f --insecure https://localhost:3000/api/health || exit 1"]
       interval: 30s
@@ -95,13 +106,13 @@ services:
     networks:
       - sbom-net
 
-  tracelet:
+  tracelet1:
     build:
       context: ./deamon
       dockerfile: Dockerfile
     container_name: sbom-tracelet-1
     hostname: sbom-tracelet-1
-    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 60"]
+    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 100"]
     environment:
       DEVICE_ID: sbom-tracelet-1
     depends_on:
@@ -111,6 +122,44 @@ services:
         condition: service_healthy
     volumes:
       - ./deamon/certs/sbom-tracelet-1:/app/certs:ro
+    networks:
+      - sbom-net
+
+  tracelet2:
+    build:
+      context: ./deamon
+      dockerfile: Dockerfile
+    container_name: sbom-tracelet-2
+    hostname: sbom-tracelet-2
+    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 200"]
+    environment:
+      DEVICE_ID: sbom-tracelet-2
+    depends_on:
+      sbom-aggregator:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
+    volumes:
+      - ./deamon/certs/sbom-tracelet-2:/app/certs:ro
+    networks:
+      - sbom-net
+
+  tracelet3:
+    build:
+      context: ./deamon
+      dockerfile: Dockerfile
+    container_name: sbom-tracelet-3
+    hostname: sbom-tracelet-3
+    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 300"]
+    environment:
+      DEVICE_ID: sbom-tracelet-3
+    depends_on:
+      sbom-aggregator:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
+    volumes:
+      - ./deamon/certs/sbom-tracelet-3:/app/certs:ro
     networks:
       - sbom-net
 
