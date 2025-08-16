@@ -1,9 +1,10 @@
-// const passport = require("passport");
+const passport = require("passport");
 require("../auth/passport-auth");
 require("../db/index")
 require("../handlers/EmqxHandler");
 
 const healthcheck = require("./healthcheck");
+const device = require("./device");
 const auth = require("./auth");
 
 const base_url = "/api";
@@ -14,6 +15,7 @@ passport_options = {
 // Exporting routes
 module.exports = (app) => {
 	app.use(base_url + "/health", healthcheck);
+	app.use(base_url + "/device", device);
 	app.use(base_url + "/auth", auth);
 
 	// Examples:
