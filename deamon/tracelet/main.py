@@ -1,5 +1,5 @@
 import click
-from tracelet.modes import periodic, triggered
+from tracelet.modes import periodic, triggered, test
 
 @click.group()
 def cli():
@@ -15,6 +15,11 @@ def periodic_mode(interval):
 def triggered_mode():
     """Run tracelet in one-shot mode"""
     triggered.run()
+
+@cli.command()
+def test_mode():
+    """Run tracelet in test mode"""
+    test.run()
 
 if __name__ == "__main__":
     print("""

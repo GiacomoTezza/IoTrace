@@ -112,7 +112,7 @@ services:
       dockerfile: Dockerfile
     container_name: sbom-tracelet-1
     hostname: sbom-tracelet-1
-    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 100"]
+    entrypoint: ["/bin/sh", "-c", "./run.sh test-mode"]
     environment:
       DEVICE_ID: sbom-tracelet-1
     depends_on:
@@ -131,7 +131,7 @@ services:
       dockerfile: Dockerfile
     container_name: sbom-tracelet-2
     hostname: sbom-tracelet-2
-    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 200"]
+    entrypoint: ["/bin/sh", "-c", "./run.sh test-mode"]
     environment:
       DEVICE_ID: sbom-tracelet-2
     depends_on:
@@ -150,7 +150,7 @@ services:
       dockerfile: Dockerfile
     container_name: sbom-tracelet-3
     hostname: sbom-tracelet-3
-    entrypoint: ["/bin/sh", "-c", "./run.sh periodic-mode --interval 300"]
+    entrypoint: ["/bin/sh", "-c", "./run.sh test-mode"]
     environment:
       DEVICE_ID: sbom-tracelet-3
     depends_on:
