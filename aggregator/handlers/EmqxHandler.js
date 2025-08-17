@@ -4,6 +4,7 @@ const mqtt = require('mqtt');
 const crypto = require('crypto');
 const forge = require('node-forge');
 const stringify = require('json-stable-stringify');
+const SbomHandler = require('../handlers/SbomHandler');
 
 const Sbom = require('../db/sbom').SbomMessage;
 const Device = require('../db/device').Device;
@@ -112,33 +113,6 @@ const client = mqtt.connect(brokerUrl, {
     connectTimeout: 4 * 1000,
 });
 
-
-// client.on('message', (topic, message) => {
-//     // Handle incoming messages
-//     console.log(`Received message on topic ${topic}:`);
-//
-//     // Perform all the necessary security checks and validation. It is a JSON formatted as:
-//     // {
-//     //     "sbom": sbom_dict,
-//     //     "signature": base64.b64encode(signature).decode(),
-//     //     "cert": open(CERT_PATH).read()
-//     // }
-//     //
-//     // Where sbom is a CycloneDX SBOM, signature is the signature of the SBOM, and cert is the certificate used to sign the SBOM.
-//
-//     try {
-//         const data = JSON.parse(message.toString());
-//
-//         if (!data.sbom || !data.signature || !data.cert) {
-//             console.error('Invalid message format.');
-//             return;
-//         }
-//
-//         let sbom = data.sbom;
-//         let signature = data.signature;
-//         let cert = data.cert;
-//
-//     });
 
 client.on('connect', () => {
     console.log('[EMQX] Connected. Subscribing to', TOPIC);
@@ -288,72 +262,50 @@ client.on('message', async (topic, payload, packet) => {
 });
 
 
+
 async function persist(ok, reason, ctx) {
     try {
-        const {
-            topic, deviceId, tsDate, tsValue, nonce, sbom, sbomJson, sbomHash, sizeBytes,
-            signatureB64, signatureAlg, signerInfo, chain, sigOk, skewOk, replay, packet
-        } = ctx;
-
-        // Upsert device last seen
-        const deviceIdEff = signerInfo?.subjectCN || deviceId;
-        if (deviceIdEff) {
-            await Device.findOneAndUpdate(
-                { deviceId: deviceIdEff },
-                {
-                    $set: {
-                        lastSeen: new Date(),
-                        lastSeenTopic: topic,
-                        lastCertFingerprint256: signerInfo?.fingerprint256,
-                    }
-                },
-                { upsert: true, new: true }
-            );
-        }
-
-        await Sbom.create({
-            topic,
-            deviceId: deviceIdEff || deviceId,
-            receivedAt: new Date(),
-            ts: tsDate || new Date(tsValue),
-            nonce: String(nonce),
-
-            sbom,
-            sbomHash: sbomHash || sha256Hex(Buffer.from(sbomJson || '', 'utf8')),
-            sizeBytes: sizeBytes || Buffer.byteLength(sbomJson || '', 'utf8'),
-
-            signatureB64,
-            signatureAlg,
-
-            signerCertPem: signerInfo ? signerInfo.chainPems.join('\n') : undefined,
-            signer: signerInfo ? {
-                subject: signerInfo.leafForge.subject.attributes.map(a => `${a.shortName}=${a.value}`).join(','),
-                subjectCN: signerInfo.subjectCN,
-                issuer: signerInfo.issuerCN,
-                serialNumber: signerInfo.serialNumber,
-                notBefore: signerInfo.leafForge.validity.notBefore,
-                notAfter: signerInfo.leafForge.validity.notAfter,
-                fingerprint256: signerInfo.fingerprint256,
-            } : undefined,
-
+        // Build a slim payload for persistence; include everything sbomHandler needs.
+        const payload = {
+            topic: ctx.topic,
+            deviceId: ctx.deviceId,
+            tsDate: ctx.tsDate,
+            tsValue: ctx.tsValue,
+            nonce: ctx.nonce,
+            sbom: ctx.sbom,
+            sbomJson: ctx.sbomJson,
+            sbomHash: ctx.sbomHash,
+            sizeBytes: ctx.sizeBytes,
+            signatureB64: ctx.signatureB64,
+            signatureAlg: ctx.signatureAlg,
+            signerInfo: ctx.signerInfo,
             verification: {
-                chainOk: !!(chain && chain.ok),
-                signatureOk: !!sigOk,
-                timestampSkewOk: !!skewOk,
-                replayOk: !!(replay && replay.ok),
-                reason: ok ? undefined : (reason || (chain && !chain.ok && chain.reason) || (replay && !replay.ok && replay.reason) || 'unknown'),
+                chainOk: !!(ctx.chain && ctx.chain.ok),
+                signatureOk: !!ctx.sigOk,
+                timestampSkewOk: !!ctx.skewOk,
+                replayOk: !!(ctx.replay && ctx.replay.ok),
+                reason: ok ? undefined : (reason || (ctx.chain && ctx.chain.reason) || (ctx.replay && ctx.replay.reason) || 'unknown')
             },
+            chainOk: !!(ctx.chain && ctx.chain.ok),
+            sigOk: !!ctx.sigOk,
+            skewOk: !!ctx.skewOk,
+            replay: ctx.replay,
+            packet: ctx.packet,
+            receivedAt: new Date()
+        };
 
-            emqx: {
-                qos: packet?.qos,
-                retain: packet?.retain,
-                mid: packet?.messageId,
-            }
-        });
+        const inserted = await SbomHandler.saveReceived(payload);
+        if (!inserted) {
+            console.warn('[SBOM] saveReceived returned no document');
+        } else {
+            // Optionally log inserted id
+            console.log('[SBOM] persisted id:', inserted._id.toString());
+        }
     } catch (e) {
-        console.error('[SBOM] Persist error:', e);
+        console.error('[SBOM] Persist delegation error:', e && e.message ? e.message : e);
     }
 }
+
 
 
 client.on('error', (err) => {

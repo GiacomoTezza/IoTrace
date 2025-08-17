@@ -24,10 +24,10 @@ const SbomSchema = new mongoose.Schema({
 	receivedAt: { type: Date, default: Date.now, index: true },
 
 	ts: { type: Date, required: true, index: true },
-	nonce: { type: String, required: true },
+	nonce: { type: String, required: true, index: true },
 
 	sbom: { type: mongoose.Schema.Types.Mixed, required: true },
-	sbomHash: { type: String, required: true },
+	sbomHash: { type: String, required: true, index: true },
 	sizeBytes: { type: Number },
 
 	signatureB64: { type: String, required: true },
@@ -37,6 +37,7 @@ const SbomSchema = new mongoose.Schema({
 	signer: { type: SignerSchema, required: true },
 
 	verification: { type: VerificationSchema, required: true },
+	verified: { type: Boolean, default: false, index: true },
 
 	emqx: {
 		qos: Number,
@@ -46,6 +47,7 @@ const SbomSchema = new mongoose.Schema({
 }, { minimize: false, versionKey: false });
 
 var SbomMessage = mongoose.model('SbomMessage', SbomSchema);
+
 module.exports = {
 	SbomMessage: SbomMessage,
 };

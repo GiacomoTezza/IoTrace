@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const DeviceSchema = new mongoose.Schema({
 	deviceId: { type: String, required: true, unique: true, index: true },
+	currentSbomId: { type: mongoose.Schema.Types.ObjectId, ref: 'SbomMessage' },
+	isCurrentValid: { type: Boolean, default: false, index: true },
 	lastSeen: { type: Date },
 	lastSeenTopic: { type: String },
 	lastCertFingerprint256: { type: String, index: true },
@@ -10,6 +12,7 @@ const DeviceSchema = new mongoose.Schema({
 }, { versionKey: false });
 
 var Device = mongoose.model('Device', DeviceSchema);
+
 module.exports = {
 	Device: Device,
 };

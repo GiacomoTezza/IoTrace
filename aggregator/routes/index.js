@@ -5,6 +5,7 @@ require("../handlers/EmqxHandler");
 
 const healthcheck = require("./healthcheck");
 const device = require("./device");
+const sbom = require("./sbom");
 const auth = require("./auth");
 
 const base_url = "/api";
@@ -16,6 +17,7 @@ passport_options = {
 module.exports = (app) => {
 	app.use(base_url + "/health", healthcheck);
 	app.use(base_url + "/device", device);
+	app.use(base_url + "/sbom", sbom);
 	app.use(base_url + "/auth", auth);
 
 	// Examples:
