@@ -60,6 +60,25 @@ async function start() {
 			mongoose.connection.on('error', (err) => console.error('[DB] connection error:', err && err.message));
 			mongoose.connection.on('disconnected', () => console.warn('[DB] disconnected'));
 			mongoose.connection.on('reconnected', () => console.log('[DB] reconnected'));
+
+			// Check if the demo user is already created, otherwise create it
+			const User = require('./user').User;
+			const userCount = await User.countDocuments({});
+			if (userCount === 0) {
+				let user = await User.create({
+					email: process.env.DEMO_EMAIL,
+					password: process.env.DEMO_PASSWORD,
+					username: "Demo User",
+					userType: "user",
+				}).catch((err) => {
+					console.error('[DB] Error creating demo user:', err && err.message);
+				});
+				if (user) {
+					console.log('[DB] Demo user created:', user.username);
+				} else {
+					console.warn('[DB] Demo user already exists or could not be created');
+				}
+			}
 			return;
 		} catch (err) {
 			console.error('[DB] Mongo connection failed:', err && err.message);

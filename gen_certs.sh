@@ -5,18 +5,21 @@ set -euo pipefail
 # Directory structure
 cert_dir="./certs"
 ca_dir="$cert_dir/ca"
-services=(emqx aggregator mongodb mongo-healthcheck)
+services=(emqx aggregator frontend mongodb mongo-healthcheck)
 
 deamon_cert_dir="./deamon/certs"
+frontend_cert_dir="./frontend/certs"
 
 # Old certs cleaning
 rm -rf "$cert_dir"
 rm -rf "$deamon_cert_dir"
+rm -rf "$frontend_cert_dir"
 
 # Create directories
 mkdir -p "$cert_dir"
 mkdir -p "$ca_dir"
 mkdir -p "$deamon_cert_dir"
+mkdir -p "$frontend_cert_dir"
 for service in "${services[@]}"; do
     mkdir -p "$cert_dir/$service"
 done
@@ -97,7 +100,7 @@ generate_cert_for_service() {
 
     # Determine usage
     local ext_section="server_cert"
-    if [[ "$service" =~ (aggregator|mongo-healthcheck) ]]; then
+    if [[ "$service" =~ (mongo-healthcheck) ]]; then
         ext_section="client_cert"
     fi
 
@@ -124,7 +127,7 @@ IP.1 = 127.0.0.1
 [server_cert]
 basicConstraints = CA:FALSE
 subjectAltName = @alt_names
-extendedKeyUsage = serverAuth
+extendedKeyUsage = serverAuth, clientAuth
 keyUsage = digitalSignature, keyEncipherment
 
 [client_cert]
@@ -159,7 +162,7 @@ EOF
             ;;
         aggregator)
             cp "$dir/$service.key" "$dir/privkey.pem"
-            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/fullchain.pem"
+            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" > "$dir/fullchain.pem"
             cat "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/$service-fullchain.crt"
             cp "$ca_dir/ca-chain.crt" "$dir/ca.crt"
             cat "$dir/$service.key" "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/${service}-mongo-client.pem"
@@ -167,6 +170,16 @@ EOF
             chmod 644 "$dir/ca.crt"
             sudo chgrp certgroup "$dir/privkey.pem" "$dir/fullchain.pem" "$dir/ca.crt" "$dir/$service-fullchain.crt" "$dir/$service.crt" "$dir/$service.key" "$dir/$service-mongo-client.pem"
             echo "✅ Aggregator"
+            ;;
+        frontend)
+            cp "$dir/$service.key" "$dir/privkey.pem"
+            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" > "$dir/fullchain.pem"
+            cat "$dir/$service.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/$service-fullchain.crt"
+            cp "$ca_dir/ca-chain.crt" "$dir/ca.crt"
+            cp "$ca_dir/ca-root.crt" "$frontend_cert_dir/ca-root.crt"
+            chmod 640 "$dir/privkey.pem" "$dir/fullchain.pem" "$dir/$service-fullchain.crt" "$dir/$service.crt" "$dir/$service.key"
+            chmod 644 "$dir/ca.crt" "$frontend_cert_dir/ca-root.crt"
+            echo "✅ Frontend"
             ;;
         mongodb)
             cat "$dir/mongodb.key" "$dir/mongodb.crt" "$ca_dir/ca-int.crt" "$ca_dir/ca-root.crt" > "$dir/mongodb.pem"
@@ -255,6 +268,7 @@ generate_root_ca
 generate_intermediate_ca
 generate_cert_for_service "emqx" "emqx"
 generate_cert_for_service "aggregator" "aggregator"
+generate_cert_for_service "frontend" "frontend"
 generate_cert_for_service "mongodb" "mongo"
 generate_cert_for_service "mongo-healthcheck" "mongo.healthcheck"
 

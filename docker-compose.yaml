@@ -65,7 +65,7 @@ services:
     networks:
       - sbom-net
 
-  sbom-aggregator:
+  aggregator:
     build:
       context: ./aggregator
       dockerfile: Dockerfile
@@ -88,7 +88,10 @@ services:
       DB_USER: user
       DB_PASSWORD: ${MONGO_PASSWORD}
       DB_PORT: 27017
-
+      DEMO_EMAIL: demo@iotrace.com
+      DEMO_PASSWORD: sbomDemo1!
+      # Development Only!
+      # NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-root.pem
     depends_on:
       emqx:
         condition: service_healthy
@@ -98,11 +101,37 @@ services:
       - ./certs/aggregator:/app/certs:ro
       # Development Only!
       - ./aggregator:/app
+      # - ./certs/ca/ca-root.crt:/etc/ssl/certs/ca-root.pem:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f --insecure https://localhost:3000/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
+    networks:
+      - sbom-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sbom-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      API_URL: https://aggregator:3000/api
+      CERTS_DIR: /app/certs
+      # Development Only!
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-root.pem
+    depends_on:
+      aggregator:
+        condition: service_healthy
+    volumes:
+      - ./certs/frontend:/app/certs:ro
+      # Development Only!
+      - ./frontend:/app
+      - ./certs/ca/ca-root.crt:/etc/ssl/certs/ca-root.pem:ro
     networks:
       - sbom-net
 
@@ -116,7 +145,7 @@ services:
     environment:
       DEVICE_ID: sbom-tracelet-1
     depends_on:
-      sbom-aggregator:
+      aggregator:
         condition: service_healthy
       emqx:
         condition: service_healthy
@@ -135,7 +164,7 @@ services:
     environment:
       DEVICE_ID: sbom-tracelet-2
     depends_on:
-      sbom-aggregator:
+      aggregator:
         condition: service_healthy
       emqx:
         condition: service_healthy
@@ -154,7 +183,7 @@ services:
     environment:
       DEVICE_ID: sbom-tracelet-3
     depends_on:
-      sbom-aggregator:
+      aggregator:
         condition: service_healthy
       emqx:
         condition: service_healthy

@@ -18,3 +18,5 @@ class AnonymousUser extends AbstractUser {
         return await UserHandler.createAccount(username, userType, email, password);
     }
 }
+
+module.exports = AnonymousUser;
