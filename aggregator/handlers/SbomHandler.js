@@ -144,12 +144,12 @@ async function saveReceived(sbomPayload) {
  * Get current SBOM for device
  */
 async function getCurrent(deviceId) {
-    const dev = await Device.findOne({ deviceId }).lean();
+    const dev = await Device.findOne({ _id: deviceId }).lean();
     if (!dev || !dev.currentSbomId) throw new NotFoundException(`No current SBOM for device ${deviceId}`);
     const sbom = await SbomMessage.findById(dev.currentSbomId).lean();
     if (!sbom) throw new NotFoundException(`SBOM ${dev.currentSbomId} not found`);
     // short history
-    const history = await SbomMessage.find({ deviceId }).sort({ receivedAt: -1 }).select('_id receivedAt verified').lean();
+    const history = await SbomMessage.find({ deviceId: dev.deviceId }).sort({ receivedAt: -1 }).select('_id receivedAt verified').lean();
     return { sbom, history };
 }
 

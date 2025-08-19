@@ -42,3 +42,17 @@ export async function getDeviceCurrentSbom(deviceId: string): Promise<any> {
   }
   return response.json();
 }
+
+export async function getDeviceSbom(sbomId: string, opts?: { signal?: AbortSignal }): Promise<any> {
+  const response = await fetch(`${backendUrl}/sbom/${sbomId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    signal: opts?.signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Error fetching SBOM with ID ${sbomId}: ${response.statusText}`);
+  }
+  return response.json();
+}
