@@ -1,3 +1,4 @@
+import DeviceCard from "~/components/device-card";
 import type { Route } from "./+types/home";
 import { getDevices } from "~/requests";
 
@@ -20,11 +21,10 @@ export default function Dashboard({
 }: Route.ComponentProps) {
   return (
     <div className="flex flex-col items-center justify-center p-6 md:p-10">
-      <div className="w-full">
-        <h1 className="text-2xl font-bold">Welcome to the Dashboard</h1>
-        <p className="mt-4 text-muted-foreground">
-          This is your device dashboard where you can manage and monitor your devices.
-        </p>
+      <div className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {loaderData.sort((a: any, b: any) => a.deviceId.localeCompare(b.deviceId)).map((device: any) => (
+          <DeviceCard device={device} key={device._id} />
+        ))}
       </div>
     </div>
   )
