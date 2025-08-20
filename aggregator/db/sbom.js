@@ -18,6 +18,36 @@ const VerificationSchema = new mongoose.Schema({
 	reason: String,
 }, { _id: false });
 
+const VulnerabilityFindingSchema = new mongoose.Schema({
+	purl: String,                // component identifier (if available)
+	componentName: String,      // friendly name
+	componentVersion: String,
+	vulnerabilities: [{
+		id: String,               // CVE / OSV id
+		summary: String,
+		severity: String,         // e.g. CRITICAL/HIGH/MODERATE/LOW/UNKNOWN
+		score: Number,            // if available (CVSS)
+		references: [String],     // URLs
+		published: Date,
+		fixedIn: [String],        // versions where fixed (if present)
+		source: String            // e.g. "OSV", "NVD", "internal-cache"
+	}]
+}, { _id: false });
+
+const VulnerabilitySummarySchema = new mongoose.Schema({
+	total: Number,
+	bySeverity: {               // quick counts
+		critical: Number,
+		high: Number,
+		moderate: Number,
+		low: Number,
+		unknown: Number
+	},
+	scannedAt: Date,
+	scannerVersion: String,
+	source: String
+}, { _id: false });
+
 const SbomSchema = new mongoose.Schema({
 	topic: { type: String, required: true, index: true },
 	deviceId: { type: String, required: true, index: true },
@@ -44,6 +74,14 @@ const SbomSchema = new mongoose.Schema({
 		retain: Boolean,
 		mid: Number,
 	},
+
+	vulnerability: {
+		type: {
+			summary: VulnerabilitySummarySchema,
+			findings: [VulnerabilityFindingSchema],
+		},
+		default: undefined
+	}
 }, { minimize: false, versionKey: false });
 
 var SbomMessage = mongoose.model('SbomMessage', SbomSchema);

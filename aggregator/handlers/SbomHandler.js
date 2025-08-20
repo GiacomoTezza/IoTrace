@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const stableStringify = require('json-stable-stringify');
 const diffLib = require('deep-diff').diff;
 const deepEqual = require('fast-deep-equal');
+const { scanSbom, formatVulnResult } = require('./VulnerabilityHandler');
 
 const { SbomMessage } = require('../db/sbom');
 const { Device } = require('../db/device');
@@ -37,10 +38,8 @@ function computeSbomHash(sbomObj, canonicalStr) {
  *  - ok boolean optional - top-level result (but we compute verified from verification if present)
  */
 async function saveReceived(sbomPayload) {
-    // const session = await mongoose.startSession();
     let insertedDoc;
     try {
-        // await session.withTransaction(async () => {
         // Basic normalization / defensive defaults
         const payload = Object.assign({}, sbomPayload);
 
@@ -129,14 +128,18 @@ async function saveReceived(sbomPayload) {
             // { upsert: true, new: true, session }
             { upsert: true, new: true }
         );
-        // });
+
+        const vulnResult = formatVulnResult(await scanSbom(insertedDoc.sbom));
+
+        // update the inserted doc with vulnResult
+        await SbomMessage.findByIdAndUpdate(insertedDoc._id, {
+            $set: { vulnerability: vulnResult }
+        }, { new: true });
 
         return insertedDoc;
     } catch (err) {
         console.error('[SbomHandler] saveReceived failed:', err);
         throw err;
-    } finally {
-        // session.endSession();
     }
 }
 
