@@ -26,6 +26,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useFetcher } from "react-router";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { JSONTree } from 'react-json-tree';
+import { Separator } from "~/components/ui/separator";
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -122,6 +123,21 @@ function buildPaginationIndices(total: number, current: number, maxVisible = 7) 
     // remove duplicates produced by small totals
     return arr.indexOf(v) === idx;
   });
+}
+
+function safeTruncateText(s?: string, max = 300) {
+  if (!s) return "";
+  if (s.length <= max) return s;
+  return s.slice(0, max) + "…";
+}
+
+function severityBadge(sev?: string) {
+  const s = (sev || "").toLowerCase();
+  if (s.includes("critical")) return <Badge className="bg-red-800 text-background">CRITICAL</Badge>;
+  if (s.includes("high")) return <Badge className="bg-red-600 text-background">HIGH</Badge>;
+  if (s.includes("moderate") || s.includes("medium")) return <Badge className="bg-yellow-600 text-background">MEDIUM</Badge>;
+  if (s.includes("low")) return <Badge className="bg-emerald-600 text-background">LOW</Badge>;
+  return <Badge className="bg-slate-600 text-background">UNKNOWN</Badge>;
 }
 
 // Loader data example
@@ -483,6 +499,8 @@ export default function Device({
               </div>
             </div>
 
+            <VulnerabilitySection vuln={currentSbom?.vulnerability} />
+
             <div>
               <h3 className="font-medium">SBOM</h3>
               <JSONTree data={currentSbom.sbom || {}} />
@@ -499,3 +517,185 @@ export default function Device({
     </div>
   )
 }
+
+
+function VulnerabilitySection({ vuln }: { vuln?: any }) {
+  if (!vuln) {
+    return (
+      <div>
+        <h3 className="font-medium mb-2">Vulnerability Scan</h3>
+        <div className="text-sm text-muted-foreground">No vulnerability data available for this SBOM.</div>
+      </div>
+    );
+  }
+
+  const summary = vuln.summary || {};
+  const findings = Array.isArray(vuln.findings) ? vuln.findings.sort((a: any, b: any) => {
+    // By severity
+    const aSev = (a.vulnerabilities || []).reduce((acc: string | null, v: any) => {
+      if (!v) return acc;
+      const s = (v.severity || "unknown").toLowerCase();
+      if (!acc) return s;
+      // order: critical, high, moderate, low, unknown
+      const order = { critical: 0, high: 1, moderate: 2, medium: 2, low: 3, unknown: 4 };
+      return (order[s] ?? 4) < (order[acc] ?? 4) ? s : acc;
+    }, null);
+    const bSev = (b.vulnerabilities || []).reduce((acc: string | null, v: any) => {
+      if (!v) return acc;
+      const s = (v.severity || "unknown").toLowerCase();
+      if (!acc) return s;
+      // order: critical, high, moderate, low, unknown
+      const order = { critical: 0, high: 1, moderate: 2, medium: 2, low: 3, unknown: 4 };
+      return (order[s] ?? 4) < (order[acc] ?? 4) ? s : acc;
+    }, null);
+    // sort by severity first, then by component name
+    if (aSev !== bSev) {
+      const order = { critical: 0, high: 1, moderate: 2, medium: 2, low: 3, unknown: 4 };
+      return (order[aSev] ?? 4) - (order[bSev] ?? 4);
+    }
+    return (a.componentName || a.purl || "").localeCompare(b.componentName || b.purl || "");
+  }) : [];
+
+  // show first N by default
+  const DEFAULT_SHOW = 5;
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? findings : findings.slice(0, DEFAULT_SHOW);
+
+  return (
+    <div>
+      <h3 className="font-medium mb-2">Vulnerability Report</h3>
+
+      <div className="bg-sidebar border-sidebar-border border p-3 rounded mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div className="text-sm"><strong>Components with vulns:</strong> {summary.total ?? 0}</div>
+            <div className="text-sm"><strong>Scanned at:</strong> {fmtDate(summary.scannedAt)}</div>
+            <div className="text-sm"><strong>Scanner Source:</strong> {summary.source ?? "-"}</div>
+            <div className="text-sm"><strong>Scanner Version:</strong> {summary.scannerVersion ?? "-"}</div>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <div className="text-sm"><strong>By severity:</strong></div>
+            <div className="flex gap-2">
+              <div className="text-xs"><Badge className="bg-red-800 text-background">C:{summary.bySeverity?.critical ?? 0}</Badge></div>
+              <div className="text-xs"><Badge className="bg-red-600 text-background">H:{summary.bySeverity?.high ?? 0}</Badge></div>
+              <div className="text-xs"><Badge className="bg-yellow-600 text-background">M:{summary.bySeverity?.moderate ?? 0}</Badge></div>
+              <div className="text-xs"><Badge className="bg-emerald-600 text-background">L:{summary.bySeverity?.low ?? 0}</Badge></div>
+              <div className="text-xs"><Badge className="bg-slate-600 text-background">U:{summary.bySeverity?.unknown ?? 0}</Badge></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {visible.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No vulnerable components detected.</div>
+        ) : (
+          visible.map((comp: any, idx: number) => {
+            const vulnCount = (comp.vulnerabilities || []).length;
+            const topSeverity = (comp.vulnerabilities || []).reduce((acc: string | null, v: any) => {
+              if (!v) return acc;
+              const s = (v.severity || "unknown").toLowerCase();
+              if (!acc) return s;
+              // order: critical, high, moderate, low, unknown
+              const order = { critical: 0, high: 1, moderate: 2, medium: 2, low: 3, unknown: 4 };
+              return (order[s] ?? 4) < (order[acc] ?? 4) ? s : acc;
+            }, null);
+
+            return (
+              <div key={`${comp.purl || comp.componentName}-${idx}`} className="border border-muted/20 rounded p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="items-center flex flex-col gap-2">
+                      {topSeverity ? severityBadge(topSeverity) : <Badge className="bg-slate-600 text-background">N/A</Badge>}
+                      <Badge className="bg-muted text-foreground">{vulnCount} vuln{vulnCount === 1 ? "" : "s"}</Badge>
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="text-sm font-semibold">
+                        {comp.componentName ?? comp.purl ?? <span className="italic">unknown</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Version: {comp.componentVersion ?? "-"} {comp.purl ? <span className="ml-2 text-xs break-all"><code>{comp.purl}</code></span> : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+
+                    {/* Expand control */}
+                    <details className="ml-2">
+                      <summary className="cursor-pointer text-xs underline">Details</summary>
+                      <div className="mt-2 space-y-2">
+                        {(comp.vulnerabilities || []).map((v: any) => (
+                          <div key={v.id} className="p-2 border border-muted/10 rounded">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="font-semibold text-sm">{v.id}</div>
+                                <div className="text-xs text-muted-foreground">{v.summary ? safeTruncateText(v.summary, 400) : "No summary available"}</div>
+                                <div className="text-xs mt-1">
+                                  <strong>Severity:</strong> {v.severity ?? "unknown"}{" "}
+                                  {v.score !== undefined && v.score !== null ? <span>• <strong>Score:</strong> {v.score}</span> : null}
+                                  {v.published ? <span> • <strong>Published:</strong> {fmtDate(v.published)}</span> : null}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col items-end text-xs">
+                                {Array.isArray(v.references) && v.references.length > 0 ? (
+                                  <div className="text-xs">
+                                    <strong>References</strong>
+                                    <ul className="list-disc ml-4 mt-1">
+                                      {v.references.slice(0, 3).map((r: string, i: number) => (
+                                        <li key={i}>
+                                          <a href={r} target="_blank" rel="noopener noreferrer" className="underline text-primary text-xs">
+                                            {r.length > 60 ? r.slice(0, 60) + "…" : r}
+                                          </a>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                    {v.references.length > 3 ? <div className="text-xs text-muted-foreground mt-1">+{v.references.length - 3} more</div> : null}
+                                  </div>
+                                ) : <div className="text-xs text-muted-foreground">No references</div>}
+
+                                {Array.isArray(v.fixedIn) && v.fixedIn.length > 0 ? (
+                                  <div className="mt-2 text-xs"><strong>Fixed in:</strong> {v.fixedIn.join(", ")}</div>
+                                ) : null}
+
+                                <div className="mt-2">
+                                  <a className="text-xs underline" href={`https://osv.dev/vulnerability/${encodeURIComponent(v.id)}`} target="_blank" rel="noopener noreferrer">Open in OSV</a>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* optionally full details */}
+                            {v.detail ? (
+                              <details className="mt-2">
+                                <summary className="text-xs cursor-pointer">Full details</summary>
+                                <pre className="mt-2 max-h-64 overflow-auto text-xs bg-neutral-900/5 p-2 rounded whitespace-pre-wrap">{JSON.stringify(v.detail, null, 2)}</pre>
+                              </details>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                </div>
+                <Separator className="mt-6" />
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {findings.length > DEFAULT_SHOW ? (
+        <div className="mt-3">
+          <button
+            className="underline text-sm text-primary"
+            onClick={() => setShowAll(prev => !prev)}
+          >
+            {showAll ? `Show fewer` : `Show all ${findings.length} vulnerable components`}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
