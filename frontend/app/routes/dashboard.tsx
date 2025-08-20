@@ -1,6 +1,7 @@
 import DeviceCard from "~/components/device-card";
 import type { Route } from "./+types/home";
 import { getDevices } from "~/requests";
+import { getJwtFromRequest } from "~/server/authServerHelpers";
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -9,8 +10,9 @@ export function meta({ }: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
-  const devices = await getDevices();
+export async function loader({ request, params }: Route.LoaderArgs) {
+  const token = getJwtFromRequest(request);
+  const devices = await getDevices(token);
   if (devices && devices.success) {
     return devices.data;
   }

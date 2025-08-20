@@ -17,42 +17,54 @@ export async function login(email: string, password: string): Promise<any> {
   return response.json();
 }
 
-export async function getDevices(): Promise<any> {
-  const response = await fetch(`${backendUrl}/device/all`, {
-    method: "GET",
+export async function fetchApit(
+  method: string,
+  endpoint: string,
+  payload: any | null,
+  queryParams: any | null,
+  token: string | null = null
+) {
+  let url = new URL(endpoint);
+  if (queryParams) {
+    Object.keys(queryParams).forEach((key) =>
+      url.searchParams.append(key, queryParams[key])
+    );
+  }
+  let body = null;
+  if (method !== "GET" && method !== "HEAD") {
+    body = JSON.stringify(payload);
+  }
+  let requestOptions: RequestInit = {
+    method: method,
     headers: {
       "Content-Type": "application/json",
+      ...(token && { Cookie: `jwt=${token}` }),
     },
-  });
+    body: body,
+    credentials: "include", // Include cookies in the request
+  };
+
+  const response = await fetch(url, requestOptions);
+
   if (!response.ok) {
-    throw new Error(`Error fetching devices: ${response.statusText}`);
+    const errText = await response.text();
+    console.error("Fetch error (" + response.status + "): " + errText);
+    throw new Error(errText);
   }
-  return response.json();
+
+  const data = response.json();
+  return data;
 }
 
-export async function getDeviceCurrentSbom(deviceId: string): Promise<any> {
-  const response = await fetch(`${backendUrl}/sbom/current/${deviceId}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Error fetching current SBOM for device ${deviceId}: ${response.statusText}`);
-  }
-  return response.json();
+
+export async function getDevices(token: string | null): Promise<any> {
+  return fetchApit("GET", `${backendUrl}/device/all`, null, null, token);
 }
 
-export async function getDeviceSbom(sbomId: string, opts?: { signal?: AbortSignal }): Promise<any> {
-  const response = await fetch(`${backendUrl}/sbom/${sbomId}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    signal: opts?.signal,
-  });
-  if (!response.ok) {
-    throw new Error(`Error fetching SBOM with ID ${sbomId}: ${response.statusText}`);
-  }
-  return response.json();
+export async function getDeviceCurrentSbom(deviceId: string, token: string | null): Promise<any> {
+  return fetchApit("GET", `${backendUrl}/sbom/current/${deviceId}`, null, null, token);
+}
+
+export async function getDeviceSbom(sbomId: string, token: string | null): Promise<any> {
+  return fetchApit("GET", `${backendUrl}/sbom/${sbomId}`, null, null, token);
 }

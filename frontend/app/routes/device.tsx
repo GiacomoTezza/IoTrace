@@ -1,5 +1,6 @@
 import type { Route } from "./+types/home";
 import { getDeviceCurrentSbom } from "~/requests";
+import { getJwtFromRequest } from "~/server/authServerHelpers";
 import {
   Pagination,
   PaginationContent,
@@ -32,12 +33,13 @@ export function meta({ }: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ request, params }: Route.LoaderArgs) {
+  const token = getJwtFromRequest(request);
   // Check param deviceId validity, should be a valid MongoDB ObjectId
   if (!params.did || !/^[a-f\d]{24}$/i.test(params.did)) {
     throw new Response("Invalid device ID", { status: 400 });
   }
-  const currentSbom = await getDeviceCurrentSbom(params.did);
+  const currentSbom = await getDeviceCurrentSbom(params.did, token);
   if (currentSbom && currentSbom.success) {
     return currentSbom.data;
   } else {
@@ -206,9 +208,6 @@ function buildPaginationIndices(total: number, current: number, maxVisible = 7) 
 //   ]
 // }
 
-// This should be the detail view for a specific device's SBOM,
-// it should have the deviceId as title, below a pagination component that points to the current SBOM, so history first element and by clicking causes the load of other sboms by id.
-// Then below that the SBOM details, starting with the verification statuses with details on hover and icons, the metadata, then the sbom itself must be visualized showing all the components and versions.
 export default function Device({
   loaderData,
 }: Route.ComponentProps) {

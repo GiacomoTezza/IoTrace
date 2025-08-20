@@ -16,9 +16,9 @@ passport_options = {
 // Exporting routes
 module.exports = (app) => {
 	app.use(base_url + "/health", healthcheck);
-	app.use(base_url + "/device", device);
-	app.use(base_url + "/sbom", sbom);
 	app.use(base_url + "/auth", auth);
+	app.use(base_url + "/device", passport.authenticate("jwt", passport_options), device);
+	app.use(base_url + "/sbom", passport.authenticate("jwt", passport_options), sbom);
 
 	// Examples:
 	// app.use(base_url, route-file-required);
