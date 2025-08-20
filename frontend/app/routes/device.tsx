@@ -25,6 +25,7 @@ import { Badge } from "~/components/ui/badge";
 import { useEffect, useState, useMemo } from "react";
 import { useFetcher } from "react-router";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
+import { JSONTree } from 'react-json-tree';
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -295,7 +296,7 @@ export default function Device({
           </details>
         ) : null}
 
-        <div className="mt-2 text-xs text-muted-foreground">
+        <div className="mt-2 text-xs text-foreground">
           <div><strong>Chain OK:</strong> {verification?.chainOk ? "yes" : "no"}</div>
           {verification?.reason ? <div><strong>Reason:</strong> {verification.reason}</div> : null}
         </div>
@@ -484,7 +485,10 @@ export default function Device({
 
             <div>
               <h3 className="font-medium">SBOM</h3>
+              <JSONTree data={currentSbom.sbom || {}} />
+              {/*
               <pre className="bg-sidebar border-sidebar-border border-1 p-4 rounded overflow-auto">{JSON.stringify(currentSbom.sbom, null, 2)}</pre>
+              */}
             </div>
 
           </div>
